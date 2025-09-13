@@ -1,7 +1,14 @@
-Django>=4.2.0,<5.0
-# libtorrent alternative - use one of these options:
-# Option 1: Try libtorrent package (alternative name)
-libtorrent
-# Option 2: If above fails, comment out libtorrent and use requests for basic functionality
-# requests>=2.31.0
-gunicorn>=21.2
+# Core Django
+Django>=5.0.0,<6.0.0
+
+# WSGI Server for production
+gunicorn>=21.2.0
+
+# LibTorrent - try these options in order if one fails:
+python-libtorrent>=2.0.0
+# Alternative names if above fails:
+# libtorrent
+# libtorrent-python
+
+# Additional utilities
+whitenoise>=6.5.0  # For serving static files in production

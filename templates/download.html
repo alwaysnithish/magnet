@@ -252,7 +252,7 @@
             }
         }
 
-        // Form Handling
+        // Form Handling with better error display
         document.getElementById('downloadForm').addEventListener('submit', function(e) {
             const btn = document.getElementById('downloadBtn');
             const magnetInput = document.getElementById('magnet');
@@ -261,19 +261,20 @@
             // Basic validation
             if (!magnetValue) {
                 e.preventDefault();
-                alert('Please enter a magnet link');
+                showError('Please enter a magnet link');
                 return;
             }
             
             if (!magnetValue.startsWith('magnet:?xt=urn:btih:')) {
                 e.preventDefault();
-                alert('Please enter a valid magnet link starting with "magnet:?xt=urn:btih:"');
+                showError('Please enter a valid magnet link starting with "magnet:?xt=urn:btih:"');
                 return;
             }
             
             // Show loading state
             btn.classList.add('loading');
             btn.disabled = true;
+            hideError();
             
             // Set timeout to reset button if something goes wrong
             setTimeout(function() {
@@ -281,6 +282,27 @@
                 btn.disabled = false;
             }, 30000); // 30 seconds timeout
         });
+
+        function showError(message) {
+            const existingAlert = document.querySelector('.alert-danger');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            const form = document.getElementById('downloadForm');
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger mt-3';
+            alert.role = 'alert';
+            alert.innerHTML = `<strong>Error:</strong> ${message}`;
+            form.parentNode.insertBefore(alert, form.nextSibling);
+        }
+
+        function hideError() {
+            const existingAlert = document.querySelector('.alert-danger');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+        }
 
         // Status Check
         async function checkStatus() {

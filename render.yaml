@@ -1,10 +1,18 @@
 services:
   - type: web
-    name: magnet
+    name: magnet-downloader
     env: python
     plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn mator.wsgi:application"
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 mator.wsgi:application"
     envVars:
       - key: SECRET_KEY
         generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "mator.settings"
+    disk:
+      name: downloads
+      mountPath: /opt/render/project/src/downloads
+      sizeGB: 5

@@ -12,7 +12,8 @@ urlpatterns = [
     path('', views.download_view, name='download'),
     path('download/', views.download_view, name='download_alt'),
     path('status/', views.status_view, name='status'),
-    path('health/', views.status_view, name='health'),  # Health check endpoint
+    path('health/', views.status_view, name='health'),
+    path('api/validate-magnet/', views.validate_magnet, name='validate_magnet'),
 ]
 
 # Serve static files during development

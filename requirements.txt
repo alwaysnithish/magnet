@@ -4,11 +4,7 @@ Django>=5.0.0,<6.0.0
 # WSGI Server for production
 gunicorn>=21.2.0
 
-# LibTorrent - try these options in order if one fails:
-#python-libtorrent>=2.0.0
-# Alternative names if above fails:
-libtorrent
-# libtorrent-python
+# Static file serving
+whitenoise>=6.5.0
 
-# Additional utilities
-whitenoise>=6.5.0  # For serving static files in production
+# No more libtorrent needed - using WebTorrent in browser!

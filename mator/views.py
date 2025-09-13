@@ -114,10 +114,16 @@ def download_magnet_file(magnet_link):
         
         while not handle.has_metadata():
             if time.time() - start_time > metadata_timeout:
-                raise TorrentDownloadError(
-                    "Timeout while downloading metadata. "
-                    "The magnet link might be invalid or have no active seeders."
-                )
+                # Try to wait a bit more if we have some peer activity
+                if handle.status().num_peers > 0:
+                    logger.info("Extending metadata timeout due to peer activity...")
+                    metadata_timeout += 30  # Add 30 more seconds
+                else:
+                    raise TorrentDownloadError(
+                        "Timeout while downloading metadata. "
+                        "The magnet link might be invalid, have no active seeders, or the tracker is down. "
+                        "Try again later or use a different magnet link."
+                    )
             
             # Check for errors
             alerts = ses.pop_alerts()

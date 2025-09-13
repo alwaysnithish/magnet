@@ -5,9 +5,9 @@ Django>=5.0.0,<6.0.0
 gunicorn>=21.2.0
 
 # LibTorrent - try these options in order if one fails:
-python-libtorrent>=2.0.0
+#python-libtorrent>=2.0.0
 # Alternative names if above fails:
-# libtorrent
+libtorrent
 # libtorrent-python
 
 # Additional utilities

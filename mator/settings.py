@@ -16,7 +16,13 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-_@l*a!3s1@o6_7sv27sp%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['*'] if DEBUG else ['your-domain.com']
+ALLOWED_HOSTS = ['*'] if DEBUG else [
+    'your-domain.com',
+    'www.your-domain.com', 
+    'magnet.your-domain.com',
+    'download.your-domain.com',
+    'your-app.onrender.com'  # Replace with your Render app name
+]
 
 # Application definition
 INSTALLED_APPS = [
@@ -168,6 +174,6 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
 
 # Torrent download settings
-TORRENT_DOWNLOAD_TIMEOUT = 300  # 5 minutes
-TORRENT_METADATA_TIMEOUT = 60   # 1 minute
-MAX_DOWNLOAD_SIZE = 500 * 1024 * 1024  # 500MB limit
+TORRENT_DOWNLOAD_TIMEOUT = 600  # 10 minutes
+TORRENT_METADATA_TIMEOUT = 120   # 2 minutes
+MAX_DOWNLOAD_SIZE = 5 * 1024 * 1024 * 1024  # 5GB limit to match disk size

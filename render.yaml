@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: magnet
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn mator.wsgi:application"
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true

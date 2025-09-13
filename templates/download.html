@@ -2,12 +2,15 @@
 <html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
-    <title>MagnetDownloader - Fast & Secure</title>
+    <title>MagnetDownloader - Browser P2P</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Download files from magnet links quickly and securely">
+    <meta name="description" content="Download files from magnet links using browser P2P technology">
     
     <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- WebTorrent CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
     
     <style>
         :root {
@@ -56,16 +59,65 @@
             z-index: 1000;
         }
 
-        .form-control {
-            border-radius: 0.8rem;
-            padding: 0.8rem 1rem;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
+        .progress {
+            height: 20px;
+            border-radius: 10px;
         }
 
-        .form-control:focus {
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
-            border-color: #0d6efd;
+        .download-info {
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .download-info.show {
+            display: block;
+        }
+
+        .file-item {
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            padding: 10px;
+            margin: 5px 0;
+        }
+
+        .dark-mode .file-item {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .status-badge {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-connecting {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .status-downloading {
+            background: #17a2b8;
+            color: #fff;
+        }
+
+        .status-seeding {
+            background: #28a745;
+            color: #fff;
+        }
+
+        .status-error {
+            background: #dc3545;
+            color: #fff;
+        }
+
+        .peer-info {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
         }
 
         .btn {
@@ -75,89 +127,35 @@
             transition: all 0.3s ease;
         }
 
-        .btn-success {
-            background: linear-gradient(45deg, #28a745, #20c997);
-            border: none;
-        }
-
         .btn-success:hover {
-            background: linear-gradient(45deg, #218838, #1fa085);
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-        }
-
-        .loading-spinner {
-            display: none;
-        }
-
-        .loading .loading-spinner {
-            display: inline-block;
-        }
-
-        .loading .btn-text {
-            display: none;
-        }
-
-        .alert {
-            border-radius: 0.8rem;
-            border: none;
-        }
-
-        .status-indicator {
-            position: fixed;
-            bottom: 1rem;
-            right: 1rem;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #28a745;
-            opacity: 0.7;
-        }
-
-        .feature-list {
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-
-        .feature-list li {
-            margin-bottom: 0.3rem;
-        }
-
-        @media (max-width: 576px) {
-            .container {
-                padding: 1rem;
-            }
-            
-            .toggle-btn {
-                top: 1rem;
-                right: 1rem;
-            }
         }
     </style>
 </head>
 <body class="dark-mode" id="body">
-    <!-- Theme Toggle Button -->
+    <!-- Theme Toggle -->
     <div class="toggle-btn">
         <button class="btn btn-outline-light btn-sm" onclick="toggleMode()" id="toggleBtn">
-            <i class="bi bi-sun"></i> Light
+            ☀️ Light
         </button>
     </div>
 
-    <!-- Status Indicator -->
-    <div class="status-indicator" id="statusIndicator" title="Service Online"></div>
+    <!-- Status Badge -->
+    <div class="status-badge status-connecting" id="statusBadge">🔗 Ready</div>
 
     <div class="container d-flex justify-content-center align-items-center" style="min-height: 100vh;">
         <div class="row w-100 justify-content-center">
-            <div class="col-12 col-md-8 col-lg-6">
+            <div class="col-12 col-md-10 col-lg-8">
                 <div class="card p-4 p-md-5">
                     <!-- Header -->
                     <div class="text-center mb-4">
                         <h1 class="display-6 fw-bold mb-2">🧲 MagnetDownloader</h1>
-                        <p class="text-muted">Fast, secure magnet link downloads</p>
+                        <p class="text-muted">Browser-based P2P downloads with WebTorrent</p>
                     </div>
 
                     <!-- Download Form -->
-                    <form method="post" id="downloadForm">
+                    <form id="downloadForm" class="mb-4">
                         {% csrf_token %}
                         <div class="mb-4">
                             <label for="magnet" class="form-label fw-semibold">
@@ -171,40 +169,96 @@
                                 required 
                                 placeholder="magnet:?xt=urn:btih:..."
                                 autocomplete="off"
+                                {% if magnet_link %}value="{{ magnet_link }}"{% endif %}
                             >
                             <div class="form-text">
-                                Make sure your magnet link is valid and starts with "magnet:?xt=urn:btih:"
+                                WebTorrent works best with popular torrents that have WebTorrent-compatible peers
                             </div>
                         </div>
 
                         <button type="submit" class="btn btn-success btn-lg w-100" id="downloadBtn">
-                            <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            <span class="btn-text">🚀 Download Now</span>
+                            🚀 Start Download
                         </button>
                     </form>
 
                     <!-- Error Display -->
                     {% if error %}
-                        <div class="alert alert-danger mt-3" role="alert">
+                        <div class="alert alert-danger" role="alert">
                             <strong>Error:</strong> {{ error }}
                         </div>
                     {% endif %}
 
-                    <!-- Features -->
-                    <div class="mt-4 text-center">
-                        <ul class="feature-list list-unstyled">
-                            <li>✅ Direct server-side downloads</li>
-                            <li>✅ No registration required</li>
-                            <li>✅ Fast & secure processing</li>
-                            <li>✅ Automatic file cleanup</li>
-                        </ul>
+                    <!-- Download Progress -->
+                    <div class="download-info" id="downloadInfo">
+                        <h5>Download Progress</h5>
+                        
+                        <!-- Progress Bar -->
+                        <div class="progress mb-3">
+                            <div class="progress-bar" id="progressBar" role="progressbar" style="width: 0%">0%</div>
+                        </div>
+                        
+                        <!-- Stats -->
+                        <div class="row text-center mb-3">
+                            <div class="col-3">
+                                <small class="text-muted d-block">Downloaded</small>
+                                <strong id="downloaded">0 MB</strong>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Speed</small>
+                                <strong id="downloadSpeed">0 KB/s</strong>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Peers</small>
+                                <strong id="numPeers">0</strong>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">ETA</small>
+                                <strong id="timeRemaining">--</strong>
+                            </div>
+                        </div>
+
+                        <!-- Files List -->
+                        <div id="filesList"></div>
+
+                        <!-- Control Buttons -->
+                        <div class="mt-3 text-center">
+                            <button class="btn btn-warning me-2" id="pauseBtn" onclick="pauseDownload()" style="display: none;">
+                                ⏸️ Pause
+                            </button>
+                            <button class="btn btn-info me-2" id="resumeBtn" onclick="resumeDownload()" style="display: none;">
+                                ▶️ Resume
+                            </button>
+                            <button class="btn btn-danger" id="stopBtn" onclick="stopDownload()" style="display: none;">
+                                🛑 Stop
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Footer -->
-                    <div class="mt-4 text-center">
-                        <small class="text-muted">
-                            Files are temporarily stored and automatically cleaned up.
-                        </small>
+                    <!-- Features -->
+                    <div class="mt-4">
+                        <h6 class="fw-bold mb-3">✨ WebTorrent Features:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="list-unstyled">
+                                    <li>✅ Browser-based P2P</li>
+                                    <li>✅ No server required</li>
+                                    <li>✅ Direct downloads</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="list-unstyled">
+                                    <li>🔗 WebRTC connections</li>
+                                    <li>📱 Works on mobile</li>
+                                    <li>⚡ Real-time streaming</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-3">
+                            <small>
+                                <strong>Note:</strong> WebTorrent connects to both traditional BitTorrent clients and WebTorrent peers. 
+                                Download success depends on peer availability and WebRTC compatibility.
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -215,6 +269,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        let client = new WebTorrent();
+        let currentTorrent = null;
+
         // Theme Management
         function toggleMode() {
             const body = document.getElementById('body');
@@ -225,14 +282,14 @@
                 body.classList.add('light-mode');
                 btn.classList.remove('btn-outline-light');
                 btn.classList.add('btn-outline-dark');
-                btn.innerHTML = '<i class="bi bi-moon"></i> Dark';
+                btn.innerHTML = '🌙 Dark';
                 localStorage.setItem('theme', 'light');
             } else {
                 body.classList.remove('light-mode');
                 body.classList.add('dark-mode');
                 btn.classList.remove('btn-outline-dark');
                 btn.classList.add('btn-outline-light');
-                btn.innerHTML = '<i class="bi bi-sun"></i> Light';
+                btn.innerHTML = '☀️ Light';
                 localStorage.setItem('theme', 'dark');
             }
         }
@@ -240,117 +297,208 @@
         // Load saved theme
         function loadTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
-            const body = document.getElementById('body');
-            const btn = document.getElementById('toggleBtn');
-            
             if (savedTheme === 'light') {
+                const body = document.getElementById('body');
+                const btn = document.getElementById('toggleBtn');
                 body.classList.remove('dark-mode');
                 body.classList.add('light-mode');
                 btn.classList.remove('btn-outline-light');
                 btn.classList.add('btn-outline-dark');
-                btn.innerHTML = '<i class="bi bi-moon"></i> Dark';
+                btn.innerHTML = '🌙 Dark';
             }
         }
 
-        // Form Handling with better error display
+        // Form handling
         document.getElementById('downloadForm').addEventListener('submit', function(e) {
-            const btn = document.getElementById('downloadBtn');
-            const magnetInput = document.getElementById('magnet');
-            const magnetValue = magnetInput.value.trim();
+            e.preventDefault();
             
-            // Basic validation
-            if (!magnetValue) {
-                e.preventDefault();
-                showError('Please enter a magnet link');
+            const magnetLink = document.getElementById('magnet').value.trim();
+            
+            if (!magnetLink) {
+                alert('Please enter a magnet link');
                 return;
             }
             
-            if (!magnetValue.startsWith('magnet:?xt=urn:btih:')) {
-                e.preventDefault();
-                showError('Please enter a valid magnet link starting with "magnet:?xt=urn:btih:"');
+            if (!magnetLink.startsWith('magnet:?xt=urn:btih:')) {
+                alert('Please enter a valid magnet link');
                 return;
             }
             
-            // Show loading state
-            btn.classList.add('loading');
-            btn.disabled = true;
-            hideError();
-            
-            // Set timeout to reset button if something goes wrong
-            setTimeout(function() {
-                btn.classList.remove('loading');
-                btn.disabled = false;
-            }, 30000); // 30 seconds timeout
+            startDownload(magnetLink);
         });
 
-        function showError(message) {
-            const existingAlert = document.querySelector('.alert-danger');
-            if (existingAlert) {
-                existingAlert.remove();
+        function startDownload(magnetLink) {
+            // Clear any existing torrent
+            if (currentTorrent) {
+                currentTorrent.destroy();
             }
+
+            // Show download info
+            document.getElementById('downloadInfo').classList.add('show');
+            updateStatus('🔗 Connecting...', 'status-connecting');
             
-            const form = document.getElementById('downloadForm');
-            const alert = document.createElement('div');
-            alert.className = 'alert alert-danger mt-3';
-            alert.role = 'alert';
-            alert.innerHTML = `<strong>Error:</strong> ${message}`;
-            form.parentNode.insertBefore(alert, form.nextSibling);
-        }
-
-        function hideError() {
-            const existingAlert = document.querySelector('.alert-danger');
-            if (existingAlert) {
-                existingAlert.remove();
-            }
-        }
-
-        // Status Check
-        async function checkStatus() {
-            try {
-                const response = await fetch('/status/');
-                const data = await response.json();
-                const indicator = document.getElementById('statusIndicator');
+            // Reset progress
+            updateProgress(0, 0, 0, 0, 0, '--');
+            
+            // Start download
+            currentTorrent = client.add(magnetLink);
+            
+            currentTorrent.on('metadata', function () {
+                updateStatus('📥 Downloading...', 'status-downloading');
+                console.log('Metadata received, files:', currentTorrent.files.length);
+                displayFiles();
+                showControlButtons();
+            });
+            
+            currentTorrent.on('download', function (bytes) {
+                const progress = Math.round(currentTorrent.progress * 100);
+                const downloaded = formatBytes(currentTorrent.downloaded);
+                const downloadSpeed = formatBytes(currentTorrent.downloadSpeed) + '/s';
+                const numPeers = currentTorrent.numPeers;
+                const uploaded = formatBytes(currentTorrent.uploaded);
+                const timeRemaining = formatTime(currentTorrent.timeRemaining);
                 
-                if (data.status === 'ok') {
-                    indicator.style.background = '#28a745';
-                    indicator.title = 'Service Online - LibTorrent Available';
-                } else {
-                    indicator.style.background = '#dc3545';
-                    indicator.title = 'Service Error - ' + (data.message || 'Unknown error');
+                updateProgress(progress, downloaded, downloadSpeed, numPeers, uploaded, timeRemaining);
+            });
+            
+            currentTorrent.on('done', function () {
+                updateStatus('🌱 Seeding Complete!', 'status-seeding');
+                console.log('Download complete!');
+            });
+            
+            currentTorrent.on('error', function (err) {
+                updateStatus('❌ Error: ' + err.message, 'status-error');
+                console.error('Download error:', err);
+            });
+        }
+
+        function displayFiles() {
+            const filesList = document.getElementById('filesList');
+            filesList.innerHTML = '<h6 class="mt-3 mb-2">Files:</h6>';
+            
+            currentTorrent.files.forEach(function(file, index) {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'file-item';
+                fileDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${file.name}</strong>
+                            <small class="text-muted d-block">${formatBytes(file.length)}</small>
+                        </div>
+                        <button class="btn btn-sm btn-primary" onclick="downloadFile(${index})">
+                            📥 Download
+                        </button>
+                    </div>
+                `;
+                filesList.appendChild(fileDiv);
+            });
+        }
+
+        function downloadFile(index) {
+            const file = currentTorrent.files[index];
+            file.getBlobURL(function (err, url) {
+                if (err) {
+                    console.error('Error getting file URL:', err);
+                    return;
                 }
-            } catch (error) {
-                const indicator = document.getElementById('statusIndicator');
-                indicator.style.background = '#ffc107';
-                indicator.title = 'Connection Error';
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = file.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                // Clean up the blob URL
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+        }
+
+        function updateProgress(progress, downloaded, speed, peers, uploaded, timeRemaining) {
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('progressBar').textContent = progress + '%';
+            document.getElementById('downloaded').textContent = downloaded;
+            document.getElementById('downloadSpeed').textContent = speed;
+            document.getElementById('numPeers').textContent = peers;
+            document.getElementById('timeRemaining').textContent = timeRemaining;
+        }
+
+        function updateStatus(message, className) {
+            const statusBadge = document.getElementById('statusBadge');
+            statusBadge.textContent = message;
+            statusBadge.className = 'status-badge ' + className;
+        }
+
+        function showControlButtons() {
+            document.getElementById('pauseBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+        }
+
+        function pauseDownload() {
+            if (currentTorrent) {
+                currentTorrent.pause();
+                document.getElementById('pauseBtn').style.display = 'none';
+                document.getElementById('resumeBtn').style.display = 'inline-block';
+                updateStatus('⏸️ Paused', 'status-connecting');
             }
         }
 
-        // Magnet Link Validation
-        document.getElementById('magnet').addEventListener('input', function(e) {
-            const input = e.target;
-            const value = input.value.trim();
-            
-            if (value && !value.startsWith('magnet:?xt=urn:btih:')) {
-                input.classList.add('is-invalid');
-            } else {
-                input.classList.remove('is-invalid');
+        function resumeDownload() {
+            if (currentTorrent) {
+                currentTorrent.resume();
+                document.getElementById('resumeBtn').style.display = 'none';
+                document.getElementById('pauseBtn').style.display = 'inline-block';
+                updateStatus('📥 Downloading...', 'status-downloading');
             }
+        }
+
+        function stopDownload() {
+            if (currentTorrent) {
+                currentTorrent.destroy();
+                currentTorrent = null;
+                document.getElementById('downloadInfo').classList.remove('show');
+                document.getElementById('pauseBtn').style.display = 'none';
+                document.getElementById('resumeBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'none';
+                updateStatus('🔗 Ready', 'status-connecting');
+            }
+        }
+
+        // Utility functions
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatTime(ms) {
+            if (!ms || ms === Infinity) return '--';
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return hours + 'h ' + (minutes % 60) + 'm';
+            } else if (minutes > 0) {
+                return minutes + 'm ' + (seconds % 60) + 's';
+            } else {
+                return seconds + 's';
+            }
+        }
+
+        // Auto-start if magnet link is provided
+        {% if magnet_link %}
+        document.addEventListener('DOMContentLoaded', function() {
+            startDownload('{{ magnet_link|escapejs }}');
         });
+        {% endif %}
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             loadTheme();
-            checkStatus();
-            
-            // Check status every 30 seconds
-            setInterval(checkStatus, 30000);
-        });
-
-        // Handle form errors
-        window.addEventListener('load', function() {
-            const btn = document.getElementById('downloadBtn');
-            btn.classList.remove('loading');
-            btn.disabled = false;
+            console.log('WebTorrent client initialized');
         });
     </script>
 </body>

@@ -10,7 +10,9 @@ from . import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.download_view, name='download'),
+    path('download/', views.download_view, name='download_alt'),
     path('status/', views.status_view, name='status'),
+    path('health/', views.status_view, name='health'),  # Health check endpoint
 ]
 
 # Serve static files during development
